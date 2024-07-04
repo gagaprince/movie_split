@@ -1,5 +1,9 @@
 import librosa
+from moviepy.editor import AudioFileClip
 
+
+def parse_audio_clip(audio_file):
+    return AudioFileClip(audio_file)
 
 def get_beat_times(music_file):
     y, sr = librosa.load(music_file)

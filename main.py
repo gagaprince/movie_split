@@ -1,6 +1,5 @@
-from movie_util import parse_clip, save_clip, get_movie_time, movie_split_by_time, movie_scale_speed, add_movie, movie_curve_change_scale, movie_curve_chang_speed
-from audio_util import get_beat_times
-from moviepy.editor import AudioFileClip
+from movie_util import parse_clip, save_clip, get_movie_time, movie_split_by_time, movie_scale_speed, add_movie, movie_curve_change_scale, movie_curve_chang_speed, movie_old_film
+from audio_util import get_beat_times, parse_audio_clip
 
 
 # if __name__ == '__main__':
@@ -13,11 +12,14 @@ if __name__ == '__main__':
     out_file = "./movie/out.mp4"
     print(f"对{in_file}进行处理，从2s开始进行曲线变速")
     video_clip = parse_clip(in_file)
-    audio_clip = AudioFileClip(mp3_file)
+    audio_clip = parse_audio_clip(mp3_file)
     movie_time = get_movie_time(video_clip)
     print(f"视频时长: {movie_time} 秒")
 
-    full_clip = movie_curve_change_scale(video_clip, 1.64861678, 6.80344671, 0.464, 1.3)
+    full_clip = movie_curve_change_scale(video_clip, 1.64861678, 6.80344671, 0.464, 1.5)
+
+    # full_clip = movie_old_film(full_clip)
+
     full_clip = movie_curve_chang_speed(full_clip, 1.64861678, 6.80344671, 0.464, 2, 0.66)
 
     full_clip = movie_split_by_time(full_clip,0, 7)

@@ -1,6 +1,7 @@
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import numpy as np
 import cv2
+import random
 
 
 def parse_clip(in_file):
@@ -146,17 +147,22 @@ def make_frame_scale_translate(duration, from_scale, end_scale, from_xy, end_xy)
     return frame_scale
 
 
-def give_me_rand_xy(video_clip, scale_max):
+def give_me_rand_xy(video_clip, scale_max, origin_xy=np.array([0,0])):
     width, height = video_clip.size
     size = np.array([width, height])
     max_size = size * scale_max
     max_xy = (max_size - size) // 2
     min_xy = - max_xy
     np_random = np.random.uniform(low=min_xy, high=max_xy, size=max_size.shape).astype(np.int32)
+    # if np.linalg.norm(np_random - origin_xy) > width/5:
     return np_random
+    # else:
+    #     return give_me_rand_xy(video_clip, scale_max, origin_xy)
 
 
-def movie_curve_change_scale_work_step(video_clip, scale_max):
+def movie_curve_change_scale_work_step(video_clip, scale_max, from_scale=1, from_xy=None):
+    if from_xy is None:
+        from_xy = [0, 0]
     movie_time = get_movie_time(video_clip)
     duration = movie_time / 2
     split_1_clip = movie_split_by_time(video_clip, 0, duration)
@@ -164,24 +170,33 @@ def movie_curve_change_scale_work_step(video_clip, scale_max):
 
     end_xy = give_me_rand_xy(video_clip, scale_max)
 
-    new_1_clip = split_1_clip.fl(make_frame_scale_translate(duration, 1, scale_max, [0, 0], end_xy))
+    scale_max = random.uniform(1.2, scale_max)
+    # ret_scale = max(random.uniform(1, scale_max), 1)
+    # ret_xy = give_me_rand_xy(video_clip, ret_scale, end_xy)
 
-    new_2_clip = split_2_clip.fl(make_frame_scale_translate(duration, scale_max, 1, end_xy, [0, 0]))
+    ret_scale = 1
+    ret_xy = [0, 0]
 
-    return add_movie([new_1_clip, new_2_clip])
+    new_1_clip = split_1_clip.fl(make_frame_scale_translate(duration, from_scale, scale_max, from_xy, end_xy))
+
+    new_2_clip = split_2_clip.fl(make_frame_scale_translate(duration, scale_max, ret_scale, end_xy, ret_xy))
+
+    return [add_movie([new_1_clip, new_2_clip]), ret_scale, ret_xy]
 
 
 def movie_curve_change_scale_work(video_clip, step, scale_max):
     move_time = get_movie_time(video_clip)
     ret_clips = []
     start_time = 0
+    ret_scale = 1
+    ret_xy = [0, 0]
     while start_time < move_time:
         end_time = start_time + step
         # 确保结束时间不超过视频总时长
         if end_time > move_time:
             end_time = move_time
         subclip = movie_split_by_time(video_clip, start_time, end_time)
-        subclip = movie_curve_change_scale_work_step(subclip, scale_max)
+        subclip, ret_scale, ret_xy = movie_curve_change_scale_work_step(subclip, scale_max, ret_scale, ret_xy)
         ret_clips.append(subclip)
         # 保存分割后的视频片段
         # 更新起始时间
@@ -202,3 +217,17 @@ def movie_curve_change_scale(video_clip, start, end, step, scale_max):
     full_clip = add_movie([split_begin_clip, split_work_clip_ret, split_end_clip])
 
     return full_clip
+
+
+def old_film(image):
+    # 添加噪点和颜色偏移
+    noise = np.random.randint(0, 50, (image.shape[0], image.shape[1], 3))
+    image = image + noise
+    image[:, :, 0] = np.clip(image[:, :, 0] * 1.2, 0, 255)  # 增加红色
+    image[:, :, 1] = np.clip(image[:, :, 1] * 0.8, 0, 255)  # 减少绿色
+    image[:, :, 2] = np.clip(image[:, :, 2] * 0.8, 0, 255)  # 减少蓝色
+    return image
+
+
+def movie_old_film(video_clip):
+    return video_clip.fl_image(old_film)

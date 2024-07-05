@@ -9,7 +9,7 @@ def parse_clip(in_file):
 
 
 def save_clip(clip, out_file):
-    clip.write_videofile(out_file, codec='libx264',  audio_codec='aac')
+    clip.write_videofile(out_file, codec='libx264', audio_codec='aac')
 
 
 def get_movie_time(clip):
@@ -147,7 +147,7 @@ def make_frame_scale_translate(duration, from_scale, end_scale, from_xy, end_xy)
     return frame_scale
 
 
-def give_me_rand_xy(video_clip, scale_max, origin_xy=np.array([0,0])):
+def give_me_rand_xy(video_clip, scale_max, origin_xy=np.array([0, 0])):
     width, height = video_clip.size
     size = np.array([width, height])
     max_size = size * scale_max
@@ -160,7 +160,67 @@ def give_me_rand_xy(video_clip, scale_max, origin_xy=np.array([0,0])):
     #     return give_me_rand_xy(video_clip, scale_max, origin_xy)
 
 
-def movie_curve_change_scale_work_step(video_clip, scale_max, from_scale=1, from_xy=None):
+def movie_curve_change_scale_work_auto_step(video_clip, scale_max, from_scale=1, from_xy=None):
+    if from_xy is None:
+        from_xy = [0, 0]
+    movie_time = get_movie_time(video_clip)
+    duration = movie_time / 2
+    split_1_clip = movie_split_by_time(video_clip, 0, duration)
+    split_2_clip = movie_split_by_time(video_clip, duration, movie_time)
+
+    end_xy = give_me_rand_xy(video_clip, scale_max)
+
+    scale_max = random.uniform(1.2, scale_max)
+    # ret_scale = max(random.uniform(1, scale_max), 1)
+    # ret_xy = give_me_rand_xy(video_clip, ret_scale, end_xy)
+
+    ret_scale = 1
+    ret_xy = [0, 0]
+
+    new_1_clip = split_1_clip.fl(make_frame_scale_translate(duration, from_scale, scale_max, from_xy, end_xy))
+
+    new_2_clip = split_2_clip.fl(make_frame_scale_translate(duration, scale_max, ret_scale, end_xy, ret_xy))
+
+    return [add_movie([new_1_clip, new_2_clip]), ret_scale, ret_xy]
+
+
+# 自动切分 自动放缩 自动平移
+def movie_curve_change_scale_auto_work(video_clip, step, scale_max):
+    move_time = get_movie_time(video_clip)
+    ret_clips = []
+    start_time = 0
+    ret_scale = 1
+    ret_xy = [0, 0]
+    while start_time < move_time:
+        end_time = start_time + step
+        # 确保结束时间不超过视频总时长
+        if end_time > move_time:
+            end_time = move_time
+        subclip = movie_split_by_time(video_clip, start_time, end_time)
+        subclip, ret_scale, ret_xy = movie_curve_change_scale_work_auto_step(subclip, scale_max, ret_scale, ret_xy)
+        ret_clips.append(subclip)
+        # 保存分割后的视频片段
+        # 更新起始时间
+        start_time += step
+
+    return add_movie(ret_clips)
+
+
+def movie_curve_change_auto_scale(video_clip, start, end, step, scale_max):
+    movie_time = get_movie_time(video_clip)
+    # 开始和结束clip 不动 最后进行拼接 中间作业的clip 传入另一个方法中进行剪辑
+    split_begin_clip = movie_split_by_time(video_clip, 0, start)
+    split_end_clip = movie_split_by_time(video_clip, end, movie_time)
+    split_work_clip = movie_split_by_time(video_clip, start, end)
+
+    split_work_clip_ret = movie_curve_change_scale_auto_work(split_work_clip, step, scale_max)
+
+    full_clip = add_movie([split_begin_clip, split_work_clip_ret, split_end_clip])
+
+    return full_clip
+
+
+def movie_curve_change_scale_work_step(video_clip, cut_map_item):
     if from_xy is None:
         from_xy = [0, 0]
     movie_time = get_movie_time(video_clip)
@@ -205,18 +265,40 @@ def movie_curve_change_scale_work(video_clip, step, scale_max):
     return add_movie(ret_clips)
 
 
-def movie_curve_change_scale(video_clip, start, end, step, scale_max):
+"""
+按照编好的 地图完成剪辑
+地图的格式：[时间段] [起始scale，结束scale] [起始位置， 结束位置]  对应的是切片 + 切片起点到终点关键帧的动画
+[
+    [
+        [t1, t2],[scale1, scale2], [[x1, y1], [x2, y2]]
+    ],
+    [
+        [t2, t3],[scale2, scale3], [[x2, y2], [x3, y3]]
+    ],
+    [
+        [t3, t4],[scale3, scale4], [[x3, y3], [x4, y4]]
+    ]
+]
+"""
+
+
+def movie_curve_change_scale(video_clip, cut_map):
     movie_time = get_movie_time(video_clip)
-    # 开始和结束clip 不动 最后进行拼接 中间作业的clip 传入另一个方法中进行剪辑
-    split_begin_clip = movie_split_by_time(video_clip, 0, start)
-    split_end_clip = movie_split_by_time(video_clip, end, movie_time)
-    split_work_clip = movie_split_by_time(video_clip, start, end)
 
-    split_work_clip_ret = movie_curve_change_scale_work(split_work_clip, step, scale_max)
+    full_split_clips = []
 
-    full_clip = add_movie([split_begin_clip, split_work_clip_ret, split_end_clip])
+    for split_obj in cut_map:
+        # 拿到时间点
+        start, end = split_obj[0]
+        if start > movie_time:
+            raise
+        if end > movie_time:
+            end = movie_time
+        split_clip = movie_split_by_time(video_clip, start, end)
+        split_clip = movie_curve_change_scale_work_step(split_clip, split_obj)
+        full_split_clips.append(split_clip)
 
-    return full_clip
+    return add_movie(full_split_clips)
 
 
 def old_film(image):

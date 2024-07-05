@@ -16,7 +16,7 @@ if __name__ == '__main__':
     movie_time = get_movie_time(video_clip)
     print(f"视频时长: {movie_time} 秒")
 
-    full_clip = movie_curve_change_scale(video_clip, 1.64861678, 6.80344671, 0.464, 1.5)
+    full_clip = movie_curve_change_scale(video_clip, [])
 
     # full_clip = movie_old_film(full_clip)
 

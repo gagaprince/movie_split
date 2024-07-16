@@ -221,48 +221,13 @@ def movie_curve_change_auto_scale(video_clip, start, end, step, scale_max):
 
 
 def movie_curve_change_scale_work_step(video_clip, cut_map_item):
-    if from_xy is None:
-        from_xy = [0, 0]
+    _, scale_obj, pointxy_obj = cut_map_item
     movie_time = get_movie_time(video_clip)
-    duration = movie_time / 2
-    split_1_clip = movie_split_by_time(video_clip, 0, duration)
-    split_2_clip = movie_split_by_time(video_clip, duration, movie_time)
-
-    end_xy = give_me_rand_xy(video_clip, scale_max)
-
-    scale_max = random.uniform(1.2, scale_max)
-    # ret_scale = max(random.uniform(1, scale_max), 1)
-    # ret_xy = give_me_rand_xy(video_clip, ret_scale, end_xy)
-
-    ret_scale = 1
-    ret_xy = [0, 0]
-
-    new_1_clip = split_1_clip.fl(make_frame_scale_translate(duration, from_scale, scale_max, from_xy, end_xy))
-
-    new_2_clip = split_2_clip.fl(make_frame_scale_translate(duration, scale_max, ret_scale, end_xy, ret_xy))
-
-    return [add_movie([new_1_clip, new_2_clip]), ret_scale, ret_xy]
-
-
-def movie_curve_change_scale_work(video_clip, step, scale_max):
-    move_time = get_movie_time(video_clip)
-    ret_clips = []
-    start_time = 0
-    ret_scale = 1
-    ret_xy = [0, 0]
-    while start_time < move_time:
-        end_time = start_time + step
-        # 确保结束时间不超过视频总时长
-        if end_time > move_time:
-            end_time = move_time
-        subclip = movie_split_by_time(video_clip, start_time, end_time)
-        subclip, ret_scale, ret_xy = movie_curve_change_scale_work_step(subclip, scale_max, ret_scale, ret_xy)
-        ret_clips.append(subclip)
-        # 保存分割后的视频片段
-        # 更新起始时间
-        start_time += step
-
-    return add_movie(ret_clips)
+    width, height = video_clip.size
+    from_xy = [pointxy_obj[0][0] * width, pointxy_obj[0][1] * height]
+    end_xy = [pointxy_obj[1][0] * width, pointxy_obj[1][1] * height]
+    new_clip = video_clip.fl(make_frame_scale_translate(movie_time, scale_obj[0], scale_obj[1], from_xy, end_xy))
+    return new_clip
 
 
 """
@@ -280,8 +245,6 @@ def movie_curve_change_scale_work(video_clip, step, scale_max):
     ]
 ]
 """
-
-
 def movie_curve_change_scale(video_clip, cut_map):
     movie_time = get_movie_time(video_clip)
 
